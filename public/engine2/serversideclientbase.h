@@ -164,9 +164,9 @@ public:
 	// AMNOTE: The first collects the initial spawn groups to pass to SendInitialSpawnGroups and sets m_bInitialSpawnGroupsSent,
 	// the second sends the server info built by a BuildServerInfoMessageAsync_t delayed call. They share a name so that
 	// both compilers order the three slots like the engine
-	virtual void unk001( CUtlVector<void *> &spawnGroups ) = 0;
+	virtual void SendServerInfo( CUtlVector<void *> &spawnGroups ) = 0;
 	virtual void SendInitialSpawnGroups( const CUtlVector<void *> &spawnGroups, bool bAsync ) = 0;
-	virtual void unk001( BuildServerInfoMessageAsync_t &info ) = 0;
+	virtual void SendServerInfo( BuildServerInfoMessageAsync_t &info ) = 0;
 
 	virtual bool UpdateAcknowledgedFramecount( int nTick ) = 0;
 	virtual bool ShouldSendMessages() = 0;
