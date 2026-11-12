@@ -140,6 +140,8 @@ public:
 	virtual void	WriteFrameQualityToTick( CNetMessagePB<CNETMsg_Tick> *pMsg ) = 0;
 	// AMNOTE: Received messages beyond the convar's value are reported
 	virtual void	SetQueuedMessageLimitConVar( CConVar<int> *pQueuedMessageLimit ) = 0;
+	// AMNOTE: Returns the value SetQueuedMessageLimitConVar stored (the convar's value, 0 when unset)
+	virtual int	GetQueuedMessageLimit() = 0;
 };
 
 
