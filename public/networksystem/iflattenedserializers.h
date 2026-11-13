@@ -25,6 +25,7 @@ struct FlattenedSerializerDesc_t
 };
 
 class CSchemaClassInfo;
+class INetworkSerializerBindingBuildFilter;
 
 // AMNOTE: One class to build a flattened serializer for, FindOrCreateCreateFlattenedSerializers fills
 // *m_pSerializer and m_bSerializerAlreadyExisted
@@ -98,10 +99,12 @@ struct SendProxyRecipientsDelta_t
 struct PolymorphicMetadataEntry_t
 {
 	uint32 m_nFieldPath;
-	int32 m_nVariant; // 1-based index of the variant the field holds
 
-	// AMNOTE: Always set when recorded, never read
-	bool m_unk101;
+	// The array's count for array count entries, the 1-based index of the variant the field holds for polymorphic id ones
+	int32 m_nValue;
+
+	// 0 array count, 1 polymorphic id
+	uint8 m_nType;
 };
 
 struct PolymorphicMetadata_t
@@ -141,8 +144,11 @@ public:
 	virtual bool Encode( const FlattenedSerializerDesc_t &serializer, CSerializedEntity *pOut, void *pObject, int nEntityIndex, NetworkSerializationMode_t nMode, CSendProxyDataList *pSendProxyData ) = 0;
 	virtual bool GatherSendProxyResults( const FlattenedSerializerDesc_t &serializer, void *pObject, int nEntityIndex, NetworkSerializationMode_t nMode, CSendProxyDataList *pSendProxyData ) = 0;
 	virtual bool Decode( const FlattenedSerializerDesc_t &serializer, const CSerializedEntity *pFrom, void *pObject, int nEntityIndex, NetworkSerializationMode_t nMode, void *, int nFlags ) = 0;
+	// AMNOTE: Reads the fields from pBuf and decodes them into pObject, as ReadFields and Decode do together. *pnFieldCount, when
+	// set, gets the number of fields read
+	virtual bool ReadFieldsAndDecode( const FlattenedSerializerDesc_t &serializer, bf_read *pBuf, void *pObject, int nEntityIndex, NetworkSerializationMode_t nMode, void *pUnk, int *pnFieldCount ) = 0;
 	virtual int CalcDelta( const FlattenedSerializerDesc_t &serializer, const CSerializedEntity *pFrom, const CSerializedEntity *pTo, CUtlLeanVectorFixedGrowable<uint32> *pOutFieldPaths, int nEntityIndex, NetworkSerializationMode_t nMode, SendProxyRecipientsDelta_t *pRecipientsDelta ) = 0;
-	virtual CSerializedEntity *BuildDeltaProperties( const FlattenedSerializerDesc_t &serializer, void *pObject, int nEntityIndex, NetworkSerializationMode_t nMode, const CSerializedEntity *pFrom, const CUtlLeanVectorFixedGrowable<uint32> *pFieldPaths, CUtlLeanVectorFixedGrowable<uint32> *pOutFieldPaths, CSendProxyDataList *pSendProxyData, bool *, bool * ) = 0;
+	virtual CSerializedEntity *BuildDeltaProperties( const FlattenedSerializerDesc_t &serializer, void *pObject, int nEntityIndex, NetworkSerializationMode_t nMode, const CSerializedEntity *pFrom, const CUtlLeanVectorFixedGrowable<uint32> *pFieldPaths, CUtlLeanVectorFixedGrowable<uint32> *pOutFieldPaths, CSendProxyDataList *pSendProxyData, bool *pbNoFieldsChanged, bool *pbFieldSizeChanged ) = 0;
 	virtual bool WriteFieldList( const FlattenedSerializerDesc_t &serializer, bf_write *pBuf, const CSerializedEntity *pEntity, int nEntityIndex, NetworkSerializationMode_t nMode, const CUtlLeanVectorFixedGrowable<uint32> *pFieldPaths, CPlayerSlot nSlot ) = 0;
 	virtual bool MergeDeltas( const FlattenedSerializerDesc_t &serializer, const CSerializedEntity *pOld, const CSerializedEntity *pDelta, CSerializedEntity *pOut, int nEntityIndex, NetworkSerializationMode_t nMode, CUtlLeanVectorFixedGrowable<uint32> *pOutFieldPaths ) = 0;
 	virtual CSerializedEntity *BuildMergedSerializedEntity( const FlattenedSerializerDesc_t &serializer, void *pPackedDelta, CSerializedEntity *pBase, CUtlLeanVectorFixedGrowable<uint32> *pOutFieldPaths, bool bFreePackedDelta, int nEntityIndex ) = 0;
@@ -157,7 +163,9 @@ public:
 	// are resolved into pOutFieldPaths, and m_ChangedFieldPaths entries that were already there are removed from it.
 	// pUnresolvedChanges, if set, gets the indices of the change offsets that resolve to no field
 	virtual void ResolveChanges( const FlattenedSerializerDesc_t &serializer, IPolymorphicMetadataHelper *pMetadataHelper, NetworkSerializationMode_t nMode, const CUtlLeanVectorFixedGrowable<uint32> *pFieldPaths, VarChangeList_t *pChanges, CUtlLeanVectorFixedGrowable<uint32> *pOutFieldPaths, CUtlVector<int> *pUnresolvedChanges ) = 0;
-	virtual CFieldPath FindFieldPathByAddress( const FlattenedSerializerDesc_t &serializer, const void *pObject, const void *pField, bool *pbFound ) = 0;
+	// The path of the networked field at pField, in pObject or a component or element it reaches; an empty path when
+	// there is none. *pbOffsetIgnored is set when pField is an offset the serializer ignores
+	virtual CFieldPath FindFieldPathByAddress( const FlattenedSerializerDesc_t &serializer, const void *pObject, const void *pField, bool *pbOffsetIgnored ) = 0;
 	virtual bool GetFieldPathChildIndices( const FlattenedSerializerDesc_t &serializer, IPolymorphicMetadataHelper *pMetadataHelper, NetworkSerializationMode_t nMode, const CFieldPath &path, CUtlVector<int> *pChildIndices ) = 0;
 	virtual bool GatherSendProxyResultsForPath( const FlattenedSerializerDesc_t &serializer, void *pObject, IPolymorphicMetadataHelper *pMetadataHelper, int nEntityIndex, NetworkSerializationMode_t nMode, const CFieldPath &path, CUtlVector<CFieldPath> *pOutFieldPaths ) = 0;
 	virtual const OffsetIgnore_t *LookupOffsetsToIgnoreForPath( const FlattenedSerializerDesc_t &serializer, const CFieldPath &path, IPolymorphicMetadataHelper *pMetadataHelper, NetworkSerializationMode_t nMode ) = 0;
